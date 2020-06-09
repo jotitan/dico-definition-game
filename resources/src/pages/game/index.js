@@ -104,6 +104,7 @@ export default function Game() {
                 case "score":
                     newContext.roundScore = data.round;
                     newContext.totalScore = data.total;
+                    newContext.detailScore = data.detail;
                     newContext.answer = data.answer;
                     break;
             }
@@ -271,6 +272,7 @@ export default function Game() {
     const showScore = ()=> {
         if(context.totalScore == null || context.roundScore == null){return ''}
         let players = Object.keys(context.totalScore).map(p=>{return {name:p,round:context.roundScore[p],total:context.totalScore[p]}});
+        console.log(context)
 
         return (
             <div style={{width:100+'%'}}>
