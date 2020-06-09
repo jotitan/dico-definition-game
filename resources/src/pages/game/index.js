@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useState} from 'react';
+import React, {useContext, useEffect, useState,useCallback} from 'react';
 import {useHistory, useParams} from 'react-router-dom'
 
 import 'moment/locale/fr';
@@ -24,6 +24,10 @@ export default function Game() {
     const {code} = useParams();
     const history = useHistory();
 
+    const createConnection = useCallback(() => {
+        createSSEConnection(code,manageEvent,manageEventNotify);
+    },[createSSEConnection,code]);
+
     useEffect(()=>{
         isGameExist(code)
             .then(()=>{
@@ -36,7 +40,7 @@ export default function Game() {
                 // Notification & redirection
                 notification["error"]({message:'Unknown game',description:'This game does not exist'});
                 history.push('/')
-            })},[isGameExist,history,code]);
+            })},[isGameExist,history,code,currentGame,createConnection]);
 
     // Check if game exist
     const joinGame = ()=>{
@@ -67,9 +71,7 @@ export default function Game() {
             .then(r=>console.log("Success definition"))
     };
 
-    const createConnection = () => {
-        createSSEConnection(code,manageEvent,manageEventNotify);
-    };
+
 
     const manageEvent = data => {
         setContext(ctx=> {
@@ -107,6 +109,8 @@ export default function Game() {
                     newContext.detailScore = data.detail;
                     newContext.answer = data.answer;
                     break;
+                default:
+                    console.log("Unknown event")
             }
             window.t = newContext;
             return newContext;
@@ -136,6 +140,7 @@ export default function Game() {
                         newContext.disconnect.splice(index,1);
                     }
                     break;
+                default:console.log("Unknown event")
             }
             window.t = newContext;
             return newContext;
@@ -165,7 +170,7 @@ export default function Game() {
         if(currentGame.id === master.id){
             return (
                 <div>
-                <div className={"bandeau"}>Vous ne pouvez pas voter, vous êtes le maitre. Voici les réponses proposées</div>
+                    <div className={"bandeau"}>Vous ne pouvez pas voter, vous êtes le maitre. Voici les réponses proposées</div>
                     {definitions.map(d=> <div style={{fontWeight:d.IsPlayerAnswer ? 'bold':'normal'}}>{d.Definition}</div>)}
                 </div>
             );
@@ -290,9 +295,10 @@ export default function Game() {
             switch(context.event){
                 case "definition":return <EditOutlined style={{lineHeight:1.9,marginLeft:5}}/>;
                 case "vote":return <LikeOutlined style={{lineHeight:1.9,marginLeft:5}}/>;
+                default:return <></>;
             }
         }
-        return "";
+        return <></>;
     };
 
     const getStatus = status => {
