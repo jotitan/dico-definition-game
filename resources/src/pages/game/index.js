@@ -53,7 +53,7 @@ export default function Game() {
                     copy.id = resp.data.id;
                     return copy;
                 });
-                createConnection()
+                //createConnection()
             })
             .catch(err=>{
                 // Game is maybe already launch
@@ -276,15 +276,28 @@ export default function Game() {
 
     const showScore = ()=> {
         if(context.totalScore == null || context.roundScore == null){return ''}
-        let players = Object.keys(context.totalScore).map(p=>{return {name:p,round:context.roundScore[p],total:context.totalScore[p]}});
-        console.log(context)
+        let players = Object.keys(context.totalScore).map(p=>{return {
+            name:p,
+            round:context.roundScore[p],
+            detail:context.detailScore[p].map(pt=>"+"+pt).join(" "),
+            total:context.totalScore[p]
+        }});
+
 
         return (
             <div style={{width:100+'%'}}>
                 <div className={"bandeau"}> Résultat du tour</div>
                 <div>La bonne réponse était : {context.answer}</div>
-                <Row><Col span={6}>Joueur</Col><Col span={6}>Manche</Col><Col span={6}>Total</Col></Row>
-                {players.map(p=><Row><Col span={6}>{p.name}</Col><Col span={6}>+ {p.round}</Col><Col span={6}>{p.total}</Col></Row>)}
+                <Row>
+                    <Col span={5}>Joueur</Col>
+                    <Col span={8}>Manche</Col>
+                    <Col span={5}>Total</Col>
+                </Row>
+                {players.map(p=><Row>
+                    <Col span={5}>{p.name}</Col>
+                    <Col span={8}>+ {p.round} ({p.detail})</Col>
+                    <Col span={5}>{p.total}</Col>
+                </Row>)}
 
             </div>
         )

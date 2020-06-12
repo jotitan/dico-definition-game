@@ -100,7 +100,7 @@ func (r Round)countScore(players map[string]*Player, master *Player)(map[string]
 			detailScore[players[idDefinitionPlayer].Name] = append(detailScore[name],1)
 			master.Score++
 			roundScore[master.Name] ++
-			detailScore[master.Name] = append(detailScore[master.Name],2)
+			detailScore[master.Name] = append(detailScore[master.Name],1)
 		}
 	}
 	return roundScore,detailScore

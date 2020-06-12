@@ -174,8 +174,8 @@ func (ng *NetworkGame)sendPlayerList(player networkPlayer){
 	player.sse <- ng.getMessagePlayers()
 }
 
-func (ng * NetworkGame)createRequestWaiter(duration int,fct func()){
-	ng.requestsWaiter = createRequestsWaiter(ng.game.GetNbActivePlayers(),duration,fct)
+func (ng * NetworkGame)createRequestWaiter(duration,nbAvoidAnswer int,fct func()){
+	ng.requestsWaiter = createRequestsWaiter(ng.game.GetNbActivePlayers()-nbAvoidAnswer,duration,fct)
 }
 
 func (ng * NetworkGame)StartGame(c *gin.Context, playerID string){
@@ -184,7 +184,7 @@ func (ng * NetworkGame)StartGame(c *gin.Context, playerID string){
 	ng.game.RulesReading()
 	ng.sendMessageToAll("-1",ng.getSimpleScoreMessage())
 	ng.sendMessageToAll("-1",ng.getMessageRules(false))
-	ng.createRequestWaiter(game.WaitRules,func(){ng.StartRound()})
+	ng.createRequestWaiter(game.WaitRules,0,func(){ng.StartRound()})
 }
 
 func (ng * NetworkGame)StartRound(){
@@ -227,7 +227,7 @@ func (ng * NetworkGame)ChooseWord(word, playerID string)error{
 		}
 		// Send message to user for giving : message + receiver
 		ng.sendMessageToAll("-1",ng.getMessageDefinition(word,false))
-		ng.createRequestWaiter(game.WaitDefinition,func(){ng.StartVotes()})
+		ng.createRequestWaiter(game.WaitDefinition,1,func(){ng.StartVotes()})
 	}
 	return nil
 }
@@ -272,7 +272,7 @@ func (ng * NetworkGame)StartVotes(){
 	ng.game.LaunchVotes()
 	// Send message for vote
 	ng.sendMessageFromFctToAll("-1",func(playerID string)(message,error){return ng.getMessageVotes(playerID,false)})
-	ng.createRequestWaiter(game.WaitVote, func() { ng.ComputeScore() })
+	ng.createRequestWaiter(game.WaitVote, 1,func() { ng.ComputeScore() })
 }
 
 func (ng * NetworkGame)GiveDefinition(playerID,definition string)error{
