@@ -343,9 +343,9 @@ export default function Game() {
                     {Object.keys(context.totalScore).map(key=>
                         <Row>
                             {context.disconnect.includes(key)?<DisconnectOutlined title="Déconnecté" style={{lineHeight:1.9}}/>:''}
-                            {context.master != null && context.master.name ===key ? <ReadOutlined title="Maître du jeu" style={{marginRight:10,lineHeight:1.9}}/>:''}
+                            {context.master != null && context.master.name ===key ? <ReadOutlined title="Maître du jeu" style={{marginLeft:10,marginRight:10,lineHeight:1.9}}/>:''}
                             <span style={{fontWeight:key === currentGame.name ? "bold":"normal"}}>{key}</span>
-                            : {context.totalScore[key]} {showAnswerIcon(key)}
+                            {context.totalScore[key]} {showAnswerIcon(key)}
                         </Row>)}
 
                     {showStatus(getStatus(context.event))}
@@ -361,10 +361,10 @@ export default function Game() {
 
     return (
         <Row>
-            <Col span={6} offset={1}>
+            <Col flex="200px" style={{marginLeft:20}}>
                 {showPanel()}
             </Col>
-            <Col span={16}>
+            <Col flex="auto">
                 {buildView()}
             </Col>
         </Row>
