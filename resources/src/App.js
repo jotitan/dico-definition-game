@@ -18,7 +18,11 @@ function App() {
     return (
         <Layout>
             <Header className="header">
-                <a href={basename + "/"}>Jeu du dictionnaire</a>
+
+                <a href={basename + "/"}>
+                    <img src={"/logo192.png"} style={{width:50,height:50}}/>
+                    Jeu du dictionnaire
+                </a>
             </Header>
             <Content  className={"content"}>
                 <GameContext.Provider value={GameService}>

@@ -21,6 +21,8 @@ export default function Home() {
         }
         if(currentGame != null && currentGame.code !== code){
             setCurrentGame(null);
+            // Remove player cookie
+            document.cookie = 'player=; expires=Thu, 01 Jan 1970 00:00:01 GMT;path=/';
         }
         // Check if game is already started
         canJoin(code).then(res=>{

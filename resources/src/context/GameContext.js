@@ -12,6 +12,7 @@ export default React.createContext({
     createSSEConnection:(code,messageHandler,notifyHandler)=>{},
     sendVote:(code,vote)=>{},
     readRules:(code)=>{},
+    readScore:(code)=>{},
     startGame:(code)=>{},
     canJoin:(code)=>{},
     getNbByLetter:letter=>{},

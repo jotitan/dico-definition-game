@@ -23,8 +23,8 @@ export default function Dico({validateAction=(value)=>{console.log("Selected",va
     const showWord = wordDef => {
         return (
             <Row>
-                <Col className={"word"+(selectedWord===wordDef.Word?" selected-word":"")} onClick={()=>setSelectedWord(wordDef.Word)}>{wordDef.Word.replace(/&#39;/g,'\'')}</Col>
-                <Col>: {wordDef.Definition}</Col>
+                <Col span={6} className={"word"+(selectedWord===wordDef.Word?" selected-word":"")} onClick={()=>setSelectedWord(wordDef.Word)}>{wordDef.Word.replace(/&#39;/g,'\'')}</Col>
+                <Col span={18}>{wordDef.Definition}</Col>
             </Row>
         )
     };

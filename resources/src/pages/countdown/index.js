@@ -13,7 +13,7 @@ export default function CountdownGame({time,text}) {
             return text;
         } else {
             return (
-                totalSeconds<=5 ?
+                totalSeconds<=10 ?
                     <span style={{color:'red',fontWeight:'bold'}}>{strTotal}.{strMillis}</span>
                 :
                     <span style={{color:'black',fontWeight:'normal'}}>{strTotal}</span>

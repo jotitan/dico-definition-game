@@ -79,6 +79,7 @@
   background-color: #b8d5f1;
   font-family: sans-serif;
   margin-bottom:10px;
+  margin-right:10px;
 }
 
 .bandeau .name {
@@ -101,3 +102,32 @@
 h3 {
   margin-top:10px;
 }
+
+.icon {
+  margin-right:10px;
+  line-height:1.9
+}
+
+.score-icon {
+  font-size: 22px;
+  line-height: 1;
+  display:inline-block;
+}
+
+.score-icon svg{
+  margin-right:10px;
+}
+
+.title-header {
+  font-weight: bold;
+  text-align:center;
+  margin-bottom:15px;
+}
+
+.score-user {
+  border:solid 2px red;
+  border-radius:5px;
+  margin-right: 10px;
+  font-weight:bold;
+}
+

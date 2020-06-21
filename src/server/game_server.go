@@ -7,6 +7,7 @@ import (
 	"github.com/jotitan/dico-definition-game/src/dico"
 	"github.com/jotitan/dico-definition-game/src/game"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -80,12 +81,23 @@ func (s Server)ReadRules(c *gin.Context) {
 	}
 }
 
+func (s Server)ReadScore(c *gin.Context) {
+	c.Header("Access-Control-Allow-Origin", "*")
+	if game, player := s.extractInfos(c); game != nil {
+		game.ReadScore(player)
+	}
+}
+
 func (s Server)GiveDefinition(c *gin.Context){
 	c.Header("Access-Control-Allow-Origin","*")
 	if game,player := s.extractInfos(c) ; game != nil {
 		values := s.extractParameters(c,[]string{"definition"})
-		if err := game.GiveDefinition(player,values[0].(string)); err != nil {
-			c.AbortWithError(404,err)
+		if 	decodedValue, err := url.QueryUnescape(values[0].(string)) ; err == nil {
+			if err := game.GiveDefinition(player, decodedValue); err != nil {
+				c.AbortWithError(404, err)
+			}
+		}else{
+			c.AbortWithError(404, err)
 		}
 	}
 }
@@ -179,6 +191,7 @@ func (s Server)Run(){
 	server.POST("/api/game/vote/:game_code",s.VoteDefinition)
 	server.POST("/api/game/give_definition/:game_code",s.GiveDefinition)
 	server.POST("/api/game/read_rules/:game_code",s.ReadRules)
+	server.POST("/api/game/read_score/:game_code",s.ReadScore)
 	server.NoRoute(s.Default)
 	server.Run(":9011")
 }

@@ -1,9 +1,9 @@
-import React, {useContext, useEffect, useState,useCallback} from 'react';
+import React, {useCallback, useContext, useEffect, useState} from 'react';
 import {useHistory, useParams} from 'react-router-dom'
 
 import 'moment/locale/fr';
 import GameContext from "../../context/GameContext";
-import {Button, Col, Input, notification, Radio, Row} from 'antd';
+import {Button, Col, Input, notification, Radio, Row, Tooltip} from 'antd';
 import {DisconnectOutlined, EditOutlined, LikeOutlined, ReadOutlined} from "@ant-design/icons";
 import 'antd/dist/antd.css';
 
@@ -11,13 +11,16 @@ import {useLocalStorage} from "../../services/local-storage.hook";
 import Dico from "../dico";
 import CountdownGame from "../countdown";
 import Rules from "../rules";
+import LikeTwoTone from "@ant-design/icons/es/icons/LikeTwoTone";
+import StarTwoTone from "@ant-design/icons/es/icons/StarTwoTone";
+import CheckCircleTwoTone from "@ant-design/icons/es/icons/CheckCircleTwoTone";
 
 export default function Game() {
     const [name,setName] = useState('');
     const [definition,setDefinition] = useState('');
     const [vote,setVote] = useState('');
     const [context,setContext] = useState({});
-    const {isGameExist,sendWordForGame,sendDefinitionForWord,join,createSSEConnection,startGame,readRules,sendVote} = useContext(GameContext);
+    const {isGameExist,sendWordForGame,sendDefinitionForWord,join,createSSEConnection,startGame,readRules,readScore,sendVote} = useContext(GameContext);
     const [currentGame,setCurrentGame] = useLocalStorage('currentGame');
     const {TextArea} = Input;
 
@@ -93,6 +96,7 @@ export default function Game() {
                 case "vote":
                     newContext.definitions = data.definitions;
                     newContext.master = data.master;
+                    newContext.word = data.word;
                     newContext.countdown = Date.now() + data.countdown*1000;
                     newContext.answers = data.answers != null ? data.answers:[];
                     break;
@@ -107,6 +111,8 @@ export default function Game() {
                     newContext.roundScore = data.round;
                     newContext.totalScore = data.total;
                     newContext.detailScore = data.detail;
+                    newContext.countdown = Date.now() + data.countdown*1000;
+                    newContext.definitions = data.definitions != null ? data.definitions:[];
                     newContext.answer = data.answer;
                     break;
                 default:
@@ -166,11 +172,11 @@ export default function Game() {
         );
     };
 
-    const showVotePanel = (definitions,master) => {
+    const showVotePanel = (definitions,master,word) => {
         if(currentGame.id === master.id){
             return (
                 <div>
-                    <div className={"bandeau"}>Vous ne pouvez pas voter, vous êtes le maitre. Voici les réponses proposées</div>
+                    <div className={"bandeau"}>Vous ne pouvez pas voter, vous êtes le maitre. Voici les réponses proposées pour votre mot {word}</div>
                     {definitions.map(d=> <div style={{fontWeight:d.IsPlayerAnswer ? 'bold':'normal'}}>{d.Definition}</div>)}
                 </div>
             );
@@ -180,7 +186,7 @@ export default function Game() {
                 {context.answers != null && context.answers.includes(currentGame.name) ? <div className={"bandeau"}>Vote enregistré</div>:
                     <div>
                         <div className={"bandeau"}>
-                            Voter pour une des définition suivantes
+                            Le mot est <span style={{fontWeight:'bold'}}>{word}</span>. Voter pour une des définition suivantes :
                         </div>
                         <Radio.Group onChange={value=>setVote(value.target.value)}>
                             {definitions.map((d,i)=> <Radio style={{display:'block'}} value={i} disabled={d.IsPlayerAnswer}>{d.Definition}</Radio>)}
@@ -260,7 +266,7 @@ export default function Game() {
             case "players":return showWaitingPlayers(context.players);
             case "round":return showNewRound(context.master);
             case "definition":return showGiveDefinition(context.word,context.master);
-            case "vote":return showVotePanel(context.definitions,context.master);
+            case "vote":return showVotePanel(context.definitions,context.master,context.word);
             case "score":return showScore();
             case "rules":return showRules();
             case "welcome":
@@ -274,31 +280,69 @@ export default function Game() {
         }
     };
 
+    const writeN = (block,nb) => {
+        let arr = Array(nb);
+        for(let i = 0 ; i < nb ; i++){arr[i]=0}
+        return arr.map(()=>block)
+    }
+
+    const buildIconsDetailScore = detail=> {
+        //GoodDef ErrorPoint VotePoint
+        return <div className={"score-icon"}>
+            {detail.GoodDef ?
+                <Tooltip placement="top" title={"Définition trouvée"}>
+                    <CheckCircleTwoTone twoToneColor={"green"}/>
+                </Tooltip>:''}
+            {detail.ErrorPoint > 0?
+                <Tooltip placement="top" title={"Erreur des joueurs"}>
+                    {writeN(<StarTwoTone twoToneColor={"red"} />,detail.ErrorPoint)}
+                </Tooltip>:''}
+            {detail.VotePoint > 0 ?
+                <Tooltip placement="top" title={"Vote(s) pour vous "}>
+                    {writeN(<LikeTwoTone  />,detail.VotePoint)}
+                </Tooltip>:''}
+        </div>
+    };
+
     const showScore = ()=> {
         if(context.totalScore == null || context.roundScore == null){return ''}
         let players = Object.keys(context.totalScore).map(p=>{return {
             name:p,
             round:context.roundScore[p],
-            detail:context.detailScore[p].map(pt=>"+"+pt).join(" "),
+            detail:context.detailScore[p],
             total:context.totalScore[p]
         }});
-
 
         return (
             <div style={{width:100+'%'}}>
                 <div className={"bandeau"}> Résultat du tour</div>
-                <div>La bonne réponse était : {context.answer}</div>
-                <Row>
+                <div>Les propositions</div>
+                <div>
+                    {Object.keys(context.definitions).map(a=><div>{context.definitions[a] === context.answer ? 'Bonne réponse':a} : {context.definitions[a]}</div>)}
+                </div>
+                <Row className={"title-header"}>
                     <Col span={5}>Joueur</Col>
                     <Col span={8}>Manche</Col>
                     <Col span={5}>Total</Col>
                 </Row>
-                {players.map(p=><Row>
+                {players.map(p=>
+                    <Row style={{fontSize:20,textAlign:'center'}} className={currentGame.name === p.name ? "score-user":""}>
                     <Col span={5}>{p.name}</Col>
-                    <Col span={8}>+ {p.round} ({p.detail})</Col>
-                    <Col span={5}>{p.total}</Col>
+                    <Col span={8}>
+                        <span>+ {p.round} </span>
+                        {buildIconsDetailScore(p.detail)}
+                    </Col>
+                    <Col span={5}>
+                        <span>{p.total}</span>
+                    </Col>
                 </Row>)}
 
+                <div style={{marginTop:20,textAlign:'center'}}>
+                    {context.answers != null && context.answers.includes(currentGame.name) ?
+                        '':
+                        <Button onClick={()=>readScore(code)}>La suite !</Button>}
+
+                </div>
             </div>
         )
     };
@@ -342,9 +386,9 @@ export default function Game() {
                     <h3>Joueurs</h3>
                     {Object.keys(context.totalScore).map(key=>
                         <Row>
-                            {context.disconnect.includes(key)?<DisconnectOutlined title="Déconnecté" style={{lineHeight:1.9}}/>:''}
-                            {context.master != null && context.master.name ===key ? <ReadOutlined title="Maître du jeu" style={{marginLeft:10,marginRight:10,lineHeight:1.9}}/>:''}
-                            <span style={{fontWeight:key === currentGame.name ? "bold":"normal"}}>{key}</span>
+                            {context.disconnect.includes(key)?<DisconnectOutlined title="Déconnecté" className="icon"/>:''}
+                            {context.master != null && context.master.name ===key ? <ReadOutlined title="Maître du jeu" className="icon"/>:''}
+                            <span style={{fontWeight:key === currentGame.name ? "bold":"normal",marginRight:10}}>{key}</span>
                             {context.totalScore[key]} {showAnswerIcon(key)}
                         </Row>)}
 
@@ -360,7 +404,7 @@ export default function Game() {
     };
 
     return (
-        <Row>
+        <Row style={{backgroundColor:'#f0f2f5'}}>
             <Col flex="200px" style={{marginLeft:20}}>
                 {showPanel()}
             </Col>

@@ -14,11 +14,13 @@ const (
 	StatusChoosingWord   = Status("choosing_word")
 	StatusDefinition     = Status("definition")
 	StatusVotes          = Status("votes")
+	StatusScore          = Status("score")
 )
 
 const (
 	WaitDefinition = 90000
 	WaitVote = 60000
+	WaitScoreReading = 30000
 	WaitRules = 60000
 )
 
@@ -78,29 +80,45 @@ func (r Round)hasPlayerDefinition(playerId string)bool{
 	return false
 }
 
+type DetailScore struct {
+	GoodDef bool
+	// Only for master
+	ErrorPoint int
+	// When people vote for definition
+	VotePoint int
+}
+
 //countScore count score based on each vote. If vote for definition, two point for player, otherwise one point for definition creator. Each error, one point for master
+// if countInTotal, save scores
 // Return new score and point of round
-func (r Round)countScore(players map[string]*Player, master *Player)(map[string]int,map[string][]int){
+func (r Round)countScore(players map[string]*Player, master *Player,countInTotal bool)(map[string]int,map[string]*DetailScore){
 	roundScore := make(map[string]int,len(players))
-	detailScore := make(map[string][]int,len(players))
+	detailScore := make(map[string]*DetailScore,len(players))
 	for _,p := range players {
 		roundScore[p.Name] = 0
-		detailScore[p.Name] = make([]int,0)
+		detailScore[p.Name] = &DetailScore{false,0,0}
 	}
 	for playerID,vote := range r.votes {
 		name := players[playerID].Name
 		if r.playersDefinition[vote].isCorrect {
-			players[playerID].Score+=2
+			if countInTotal {
+				players[playerID].Score+=2
+			}
 			roundScore[name] += 2
-			detailScore[name] = append(detailScore[name],2)
+			g := detailScore[name]
+			g.GoodDef = true
 		}else{
 			idDefinitionPlayer := r.playersDefinition[vote].playerId
-			players[idDefinitionPlayer].Score++
+			if countInTotal {
+				players[idDefinitionPlayer].Score++
+			}
 			roundScore[players[idDefinitionPlayer].Name] ++
-			detailScore[players[idDefinitionPlayer].Name] = append(detailScore[name],1)
-			master.Score++
+			detailScore[players[idDefinitionPlayer].Name].VotePoint++
+			if countInTotal {
+				master.Score++
+			}
 			roundScore[master.Name] ++
-			detailScore[master.Name] = append(detailScore[master.Name],1)
+			detailScore[master.Name].ErrorPoint++
 		}
 	}
 	return roundScore,detailScore
@@ -160,17 +178,17 @@ type Game struct {
 	CurrentDicoPlayer int
 	CurrentRound *Round
 	// One of 5 status
-	Status Status
+	Status        Status
 	limitStepTime time.Time
-	rules map[string]int
+	answers       map[string]int
 }
 
 func Create()*Game{
 	return &Game{Code:generateRandomCode(4),Status: StatusWaitingPlayers,
-		Players:make([]*Player,0),
-		playersById:make(map[string]*Player),
-		rules:make(map[string]int),
-		CurrentDicoPlayer:-1}
+		Players:           make([]*Player,0),
+		playersById:       make(map[string]*Player),
+		answers:           make(map[string]int),
+		CurrentDicoPlayer: -1}
 }
 
 func (g * Game)DisconnectPlayer(playerID string)*Player{
@@ -193,12 +211,12 @@ func (g * Game) CheckStatus(status Status)bool{
 	return g.Status.Equals(status)
 }
 
-func (g * Game)getRules()[]string{
-	rules := make([]string,0,len(g.rules))
-	for id := range g.rules{
-		rules = append(rules,id)
+func (g * Game) getAnswers()[]string{
+	answers := make([]string,0,len(g.answers))
+	for id := range g.answers {
+		answers = append(answers,id)
 	}
-	return rules
+	return answers
 }
 
 func (g * Game)GetPlayerById(playerID string)(*Player,error) {
@@ -264,6 +282,7 @@ func (g *Game)NextRound(){
 	// Change dico player
 	g.CurrentDicoPlayer = (g.CurrentDicoPlayer+1)%len(g.Players)
 	g.CurrentRound = NewRound()
+	g.answers = make(map[string]int)
 	g.Status = StatusChoosingWord
 }
 
@@ -320,9 +339,15 @@ func (g *Game) Vote(playerID string, definition int) error{
 	return g.CurrentRound.Vote(playerID,definition)
 }
 
+// Don't save score, just compute
+func (g *Game)ComputeCount()(map[string]int,map[string]*DetailScore,map[string]int){
+	roundScore,detailScore := g.CurrentRound.countScore(g.playersById,g.Players[g.CurrentDicoPlayer],false)
+	return roundScore,detailScore,g.GetTotalScore()
+}
+
 // Return score of round and total score
-func (g *Game)Count()(map[string]int,map[string][]int,map[string]int){
-	roundScore,detailScore := g.CurrentRound.countScore(g.playersById,g.Players[g.CurrentDicoPlayer])
+func (g *Game)Count()(map[string]int,map[string]*DetailScore,map[string]int){
+	roundScore,detailScore := g.CurrentRound.countScore(g.playersById,g.Players[g.CurrentDicoPlayer],true)
 	return roundScore,detailScore,g.GetTotalScore()
 }
 
@@ -355,8 +380,8 @@ func (g * Game)GetAnswers()[]string{
 	if g.Status == StatusVotes {
 		return g.getPlayersNameFromID(g.CurrentRound.getVoters())
 	}
-	if g.Status == StatusWaitingRules {
-		return g.getPlayersNameFromID(g.getRules())
+	if g.Status == StatusWaitingRules || g.Status == StatusScore {
+		return g.getPlayersNameFromID(g.getAnswers())
 	}
 	return []string{}
 }
@@ -369,10 +394,25 @@ func (g * Game)getPlayersNameFromID(ids []string)[]string{
 	return players
 }
 
-func (g *Game) ReadRules(playerID string) *Player{
+func (g *Game) SetPlayerAnswer(playerID string) *Player{
 	if player,err := g.GetPlayerById(playerID) ; err == nil {
-		g.rules[playerID] = 0
+		g.answers[playerID] = 0
 		return player
 	}
 	return nil
+}
+
+func (g * Game)GetDefinitionsWithName()map[string]string{
+	definitions := make(map[string]string,len(g.CurrentRound.playersDefinition))
+	for _,def := range g.CurrentRound.playersDefinition {
+		definitions[g.playersById[def.playerId].Name] = def.definition
+	}
+	return definitions
+}
+
+
+func (g *Game) SetScoreStatus() {
+	g.answers = make(map[string]int)
+	g.setLimitTime(WaitScoreReading)
+	g.Status = StatusScore
 }

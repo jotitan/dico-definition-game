@@ -43,7 +43,7 @@ function sendWordForGame(code,word){
 function sendDefinitionForWord(code,definition){
     return axios({
         url: getBaseUrl() + `/api/game/give_definition/${code}`,
-        data:`{"definition":"${definition}"}`,
+        data:`{"definition":"${encodeURIComponent(definition)}"}`,
         method:'POST'
     });
 }
@@ -90,6 +90,14 @@ function startGame(code){
     }).then(d=>console.log("Partie demarre"))
 };
 
+function readScore(code){
+    axios({
+        url: getBaseUrl() + `/api/game/read_score/${code}`,
+        method:'POST'
+    }).then(d=>console.log("En attente"))
+};
+
+
 function readRules(code){
     axios({
         url: getBaseUrl() + `/api/game/read_rules/${code}`,
@@ -120,6 +128,7 @@ export default {
     join:join,
     sendVote:sendVote,
     readRules:readRules,
+    readScore:readScore,
     startGame:startGame,
     canJoin:canJoin,
     createSSEConnection:createSSEConnection
