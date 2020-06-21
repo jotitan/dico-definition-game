@@ -20,7 +20,7 @@ function App() {
             <Header className="header">
 
                 <a href={basename + "/"}>
-                    <img src={"/logo192.png"} style={{width:50,height:50}}/>
+                    <img src={"/logo192.png"} style={{width:50,height:50}} alt={"Logo"}/>
                     Jeu du dictionnaire
                 </a>
             </Header>
