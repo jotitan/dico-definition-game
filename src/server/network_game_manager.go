@@ -19,8 +19,8 @@ func NewNetworkManager()*NetworkGameManager {
 	return &NetworkGameManager{make(map[string]*NetworkGame)}
 }
 
-func (m *NetworkGameManager)AddNewGame(dico dico.Dico)*NetworkGame{
-	networkGame :=NewNetworkGame(dico)
+func (m *NetworkGameManager)AddNewGame(typeGame string,dico dico.Dico)*NetworkGame{
+	networkGame :=NewNetworkGame(typeGame,dico)
 	m.games[networkGame.game.Code] = networkGame
 	return networkGame
 }

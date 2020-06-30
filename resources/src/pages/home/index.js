@@ -1,6 +1,6 @@
 import React, {useContext, useState} from 'react';
 import 'moment/locale/fr';
-import {Button, Input, notification, Row} from 'antd';
+import {Button, Input, notification, Radio, Row} from 'antd';
 import GameContext from "../../context/GameContext";
 import {useLocalStorage} from '../../services/local-storage.hook'
 
@@ -8,9 +8,10 @@ export default function Home() {
     const [codeGame,setCodeGame] = useState('');
     const {createGame,createCurrentGame,canJoin} = useContext(GameContext);
     const [currentGame,setCurrentGame] = useLocalStorage('currentGame');
+    const [type,setType] = useState('normal');
     const doCreateGame = ()=>{
         // Ask server
-        createGame().then(resp=>launchGame(resp.data.code))
+        createGame(type).then(resp=>launchGame(resp.data.code))
             .catch(err=>console.log(err))
     };
 
@@ -45,13 +46,22 @@ export default function Home() {
 
     return (
         <>
-            <div className="App">
+            <div className="App" style={{marginLeft:10}}>
                 <Row>
+                    <h3>Nouvelle partie</h3>
+                </Row>
+                <Row>
+                    <Radio.Group onChange={v=>setType(v.target.value)} value={type} style={{lineHeight:2.3,marginLeft:10}}>
+                        <Radio value={"normal"}>Normal</Radio>
+                        <Radio value={"fun"}>Fun</Radio>
+                    </Radio.Group>
                     <Button onClick={doCreateGame}>Créer une partie</Button>
                 </Row>
-                <Row>Ou</Row>
                 <Row>
-                    Rejoindre une partie : <Input placeholder={"Code"} onChange={v=>setCodeGame(v.target.value)} style={{width:60}}/>
+                    <h3>Rejoindre une partie</h3>
+                </Row>
+                <Row>
+                    <Input placeholder={"Code"} onChange={v=>setCodeGame(v.target.value)} style={{width:60}}/>
                     <Button onClick={gotoGame}>Jouer !</Button>
                 </Row>
             </div>

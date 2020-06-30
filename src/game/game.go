@@ -90,8 +90,10 @@ type DetailScore struct {
 
 //countScore count score based on each vote. If vote for definition, two point for player, otherwise one point for definition creator. Each error, one point for master
 // if countInTotal, save scores
+// countBadAnswer, add one point to master for each bad answer. Useless in fun game
 // Return new score and point of round
-func (r Round)countScore(players map[string]*Player, master *Player,countInTotal bool)(map[string]int,map[string]*DetailScore){
+
+func (r Round)countScore(players map[string]*Player, master *Player,countInTotal,countBadAnswer bool)(map[string]int,map[string]*DetailScore){
 	roundScore := make(map[string]int,len(players))
 	detailScore := make(map[string]*DetailScore,len(players))
 	for _,p := range players {
@@ -114,11 +116,14 @@ func (r Round)countScore(players map[string]*Player, master *Player,countInTotal
 			}
 			roundScore[players[idDefinitionPlayer].Name] ++
 			detailScore[players[idDefinitionPlayer].Name].VotePoint++
-			if countInTotal {
-				master.Score++
+			// Point bad response for master
+			if countBadAnswer {
+				if countInTotal {
+					master.Score++
+				}
+				roundScore[master.Name] ++
+				detailScore[master.Name].ErrorPoint++
 			}
-			roundScore[master.Name] ++
-			detailScore[master.Name].ErrorPoint++
 		}
 	}
 	return roundScore,detailScore
@@ -129,10 +134,12 @@ type definitionWithInfo struct {
 	IsPlayerAnswer bool
 }
 
-func (r * Round)GetDefinitionsWithInfo(playerID string)[]definitionWithInfo{
-	definitions := make([]definitionWithInfo,len(r.playersDefinition))
-	for i,def := range r.playersDefinition {
-		definitions[i] = definitionWithInfo{def.definition,strings.EqualFold(def.playerId,playerID)}
+func (r * Round)GetDefinitionsWithInfo(playerID,excludePlayer string)[]definitionWithInfo{
+	definitions := make([]definitionWithInfo,0,len(r.playersDefinition))
+	for _,def := range r.playersDefinition {
+		if !strings.EqualFold(excludePlayer,def.playerId) {
+			definitions = append(definitions,definitionWithInfo{def.definition, strings.EqualFold(def.playerId, playerID)})
+		}
 	}
 	return definitions
 }
@@ -171,6 +178,8 @@ func (r * Round)getDefininers()[]string{
 
 type Game struct {
 	Code string
+	// If true, normal, otherwise, fun game
+	TypeGameNormal bool
 	// First player is the creator of the game
 	Players []*Player
 	playersById map[string]*Player
@@ -183,12 +192,20 @@ type Game struct {
 	answers       map[string]int
 }
 
-func Create()*Game{
+func Create(typeGame string)*Game{
 	return &Game{Code:generateRandomCode(4),Status: StatusWaitingPlayers,
+		TypeGameNormal:strings.EqualFold(typeGame,"normal"),
 		Players:           make([]*Player,0),
 		playersById:       make(map[string]*Player),
 		answers:           make(map[string]int),
 		CurrentDicoPlayer: -1}
+}
+
+func (g * Game)GetType()string{
+	if g.TypeGameNormal {
+		return "normal"
+	}
+	return "fun"
 }
 
 func (g * Game)DisconnectPlayer(playerID string)*Player{
@@ -298,8 +315,12 @@ func (g *Game) ChooseWord(word,definition string) error{
 	if !g.CheckStatus(StatusChoosingWord) {
 		return errors.New("impossible to choose Word now")
 	}
-
-	g.CurrentRound.chooseWord(g.GetCurrentDicoPlayer().ID,word,definition)
+	// If fun game, playerID is -1 (definition not attach to player), otherwise, id a player
+	if g.TypeGameNormal {
+		g.CurrentRound.chooseWord(g.GetCurrentDicoPlayer().ID, word, definition)
+	}else{
+		g.CurrentRound.chooseWord("-1", word, definition)
+	}
 	g.Status = StatusDefinition
 	g.setLimitTime(WaitDefinition)
 	return nil
@@ -322,10 +343,11 @@ func (g * Game)AddWordDefinition(playerId,definition string)error{
 	if !g.CheckStatus(StatusDefinition) {
 		return errors.New("impossible to give definition now")
 	}
-	if strings.EqualFold(playerId,g.GetCurrentDicoPlayer().ID) {
+	// If normal game, master can't set definition, otherwise possible
+	if g.TypeGameNormal && strings.EqualFold(playerId,g.GetCurrentDicoPlayer().ID) {
 		return errors.New("master player can't give a definition")
 	}
-	return g.CurrentRound.addDefinition(playerId,definition)
+	return g.CurrentRound.addDefinition(playerId, definition)
 }
 
 func (g *Game) Vote(playerID string, definition int) error{
@@ -333,7 +355,8 @@ func (g *Game) Vote(playerID string, definition int) error{
 		return errors.New("impossible to vote for definition now")
 	}
 
-	if strings.EqualFold(playerID,g.GetCurrentDicoPlayer().ID){
+	// If normal game, master can't vote, otherwise possible
+	if g.TypeGameNormal && strings.EqualFold(playerID,g.GetCurrentDicoPlayer().ID){
 		return errors.New("master player can't vote")
 	}
 	return g.CurrentRound.Vote(playerID,definition)
@@ -341,13 +364,13 @@ func (g *Game) Vote(playerID string, definition int) error{
 
 // Don't save score, just compute
 func (g *Game)ComputeCount()(map[string]int,map[string]*DetailScore,map[string]int){
-	roundScore,detailScore := g.CurrentRound.countScore(g.playersById,g.Players[g.CurrentDicoPlayer],false)
+	roundScore,detailScore := g.CurrentRound.countScore(g.playersById,g.Players[g.CurrentDicoPlayer],false,g.TypeGameNormal)
 	return roundScore,detailScore,g.GetTotalScore()
 }
 
 // Return score of round and total score
 func (g *Game)Count()(map[string]int,map[string]*DetailScore,map[string]int){
-	roundScore,detailScore := g.CurrentRound.countScore(g.playersById,g.Players[g.CurrentDicoPlayer],true)
+	roundScore,detailScore := g.CurrentRound.countScore(g.playersById,g.Players[g.CurrentDicoPlayer],true,g.TypeGameNormal)
 	return roundScore,detailScore,g.GetTotalScore()
 }
 
@@ -402,10 +425,13 @@ func (g *Game) SetPlayerAnswer(playerID string) *Player{
 	return nil
 }
 
+// Remove good definifion from list
 func (g * Game)GetDefinitionsWithName()map[string]string{
 	definitions := make(map[string]string,len(g.CurrentRound.playersDefinition))
 	for _,def := range g.CurrentRound.playersDefinition {
-		definitions[g.playersById[def.playerId].Name] = def.definition
+		if !strings.EqualFold(def.playerId,"-1" ) {
+			definitions[g.playersById[def.playerId].Name] = def.definition
+		}
 	}
 	return definitions
 }

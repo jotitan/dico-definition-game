@@ -4,7 +4,7 @@ import {useHistory, useParams} from 'react-router-dom'
 import 'moment/locale/fr';
 import GameContext from "../../context/GameContext";
 import {Button, Col, Input, notification, Radio, Row, Tooltip} from 'antd';
-import {DisconnectOutlined, EditOutlined, LikeOutlined, ReadOutlined} from "@ant-design/icons";
+import {DisconnectOutlined, CopyOutlined,EditOutlined, LikeOutlined, ReadOutlined} from "@ant-design/icons";
 import 'antd/dist/antd.css';
 
 import {useLocalStorage} from "../../services/local-storage.hook";
@@ -14,6 +14,8 @@ import Rules from "../rules";
 import LikeTwoTone from "@ant-design/icons/es/icons/LikeTwoTone";
 import StarTwoTone from "@ant-design/icons/es/icons/StarTwoTone";
 import CheckCircleTwoTone from "@ant-design/icons/es/icons/CheckCircleTwoTone";
+
+const TYPE_GAME_NORMAL = 'normal';
 
 export default function Game() {
     const [name,setName] = useState('');
@@ -34,9 +36,12 @@ export default function Game() {
     useEffect(()=>{
         isGameExist(code)
             .then(()=>{
-                if(currentGame != null && currentGame.id != null){
+                if(currentGame != null && currentGame.id != null && currentGame.code === code){
                     //try to reconnect
                     createConnection();
+                }else{
+                    // Remove cookie
+                    document.cookie = 'player=; expires=Thu, 01 Jan 1970 00:00:01 GMT;path=/';
                 }
             })
             .catch(e=>{
@@ -53,10 +58,15 @@ export default function Game() {
                 setCurrentGame(g=>{
                     let copy = {...g};
                     copy.name = name;
+                    copy.type = resp.data.type || TYPE_GAME_NORMAL;
+                    // Check if current id is to different to new. If true, remove creator status and put code (case of direct access)
+                    if(copy.code !== code){
+                        copy.isCreator = false;
+                        copy.code = code;
+                    }
                     copy.id = resp.data.id;
                     return copy;
                 });
-                //createConnection()
             })
             .catch(err=>{
                 // Game is maybe already launch
@@ -73,8 +83,6 @@ export default function Game() {
         sendDefinitionForWord(code,definition)
             .then(r=>console.log("Success definition"))
     };
-
-
 
     const manageEvent = data => {
         setContext(ctx=> {
@@ -114,6 +122,8 @@ export default function Game() {
                     newContext.countdown = Date.now() + data.countdown*1000;
                     newContext.definitions = data.definitions != null ? data.definitions:[];
                     newContext.answer = data.answer;
+                    newContext.answers = data.answers != null ? data.answers:[];
+                    newContext.word = data.word;
                     break;
                 default:
                     console.log("Unknown event")
@@ -153,27 +163,35 @@ export default function Game() {
         });
     };
 
+    const copyLink = ()=>{
+        document.querySelector("#linkValue").select();
+        document.execCommand("copy");
+    };
+
     const showWaitingPlayers = players=>{
         return (
             <>
                 <div>
-                    {currentGame.isCreator ?
-                        <div>
-                            <Button onClick={()=>startGame(code)}>Démarrer</Button>
-                            Lien de jeu : {window.location.href}
-                        </div>:<></>}
+
                 </div>
                 <div className={"bandeau"}>Joueurs connectés</div>
                 <div>
                     {players.map((p,i)=><div>Joueur {i+1} : {p}</div>)}
                 </div>
-
+                <div>
+                    Inviter des amis
+                    <input id="linkValue" value={window.location.href} size={50} style={{marginLeft:10}}/>
+                    <Tooltip placement={"top"} title={"Copier le lien"}>
+                        <CopyOutlined onClick={copyLink} style={{marginRight:20,fontSize:18}}/>
+                    </Tooltip>
+                    {currentGame.isCreator ?<Button onClick={()=>startGame(code)}>Démarrer la partie</Button>:<></>}
+                </div>
             </>
         );
     };
 
     const showVotePanel = (definitions,master,word) => {
-        if(currentGame.id === master.id){
+        if(currentGame.id === master.id && currentGame.type===TYPE_GAME_NORMAL){
             return (
                 <div>
                     <div className={"bandeau"}>Vous ne pouvez pas voter, vous êtes le maitre. Voici les réponses proposées pour votre mot {word}</div>
@@ -206,7 +224,7 @@ export default function Game() {
     };
 
     const showGiveDefinition = (word,master) => {
-        if(currentGame.id === master.id){
+        if(currentGame.id === master.id && currentGame.type===TYPE_GAME_NORMAL){
             // Can't give definition
             return (
                 <>
@@ -253,7 +271,7 @@ export default function Game() {
                 <Rules/>
                 <div>
                     {context.answers != null && context.answers.includes(currentGame.name) ?
-                        <div className={"bandeau"}> "Vos amis lisent toujours les règles"</div>:
+                        <div className={"bandeau"}>Vos amis lisent toujours les règles</div>:
                         <Button onClick={()=>readRules(code)}>Bien compris</Button>}
 
                 </div>
@@ -312,13 +330,13 @@ export default function Game() {
             detail:context.detailScore[p],
             total:context.totalScore[p]
         }});
-
         return (
             <div style={{width:100+'%'}}>
                 <div className={"bandeau"}> Résultat du tour</div>
-                <div>Les propositions</div>
+                <div>Vraie définition du mot <span style={{fontWeight:'bold'}}>{context.word}</span> : {context.answer}</div>
+                <div style={{fontWeight:'bold'}}>Les propositions</div>
                 <div>
-                    {Object.keys(context.definitions).map(a=><div>{context.definitions[a] === context.answer ? 'Bonne réponse':a} : {context.definitions[a]}</div>)}
+                    {Object.keys(context.definitions).map(a=><div>{a} : {context.definitions[a]}</div>)}
                 </div>
                 <Row className={"title-header"}>
                     <Col span={5}>Joueur</Col>
@@ -327,15 +345,15 @@ export default function Game() {
                 </Row>
                 {players.map(p=>
                     <Row style={{fontSize:20,textAlign:'center'}} className={currentGame.name === p.name ? "score-user":""}>
-                    <Col span={5}>{p.name}</Col>
-                    <Col span={8}>
-                        <span>+ {p.round} </span>
-                        {buildIconsDetailScore(p.detail)}
-                    </Col>
-                    <Col span={5}>
-                        <span>{p.total}</span>
-                    </Col>
-                </Row>)}
+                        <Col span={5}>{p.name}</Col>
+                        <Col span={8}>
+                            <span>+ {p.round} </span>
+                            {buildIconsDetailScore(p.detail)}
+                        </Col>
+                        <Col span={5}>
+                            <span>{p.total}</span>
+                        </Col>
+                    </Row>)}
 
                 <div style={{marginTop:20,textAlign:'center'}}>
                     {context.answers != null && context.answers.includes(currentGame.name) ?
@@ -382,6 +400,10 @@ export default function Game() {
 
         return (
             <>
+                <div>
+                    <h3>Mode de jeu</h3>
+                    <Row>{currentGame.type}</Row>
+                </div>
                 <div>
                     <h3>Joueurs</h3>
                     {Object.keys(context.totalScore).map(key=>

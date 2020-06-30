@@ -6,6 +6,7 @@ import (
 	"github.com/jotitan/dico-definition-game/src/logger"
 	"io/ioutil"
 	"math"
+	"math/rand"
 	"sort"
 	"strings"
 )
@@ -27,6 +28,15 @@ func LoadDicoFromFile()Dico{
 		return newDico(dico)
 	}
 	return Dico{}
+}
+
+// Return a letter and a page
+func (d Dico)GetRandomPage(nbByPage int)(string,int){
+	value := string(65 + rand.Int()%26)
+	nbWord := d.Length(value)
+	nbPage := int(math.Max(1,math.Ceil(float64(nbWord/nbByPage))))
+	randomPage := rand.Int()%nbPage
+	return value,randomPage
 }
 
 func (d Dico)Length(letter string)int{

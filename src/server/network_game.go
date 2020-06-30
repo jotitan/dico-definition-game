@@ -104,8 +104,8 @@ type NetworkGame struct {
 	watcher chan string
 }
 
-func NewNetworkGame(dico dico.Dico)*NetworkGame {
-	ng :=  &NetworkGame{game:game.Create(),dico:dico,playersConnexion:make(map[string]networkPlayer),watcher:make(chan string,10)}
+func NewNetworkGame(typeGame string,dico dico.Dico)*NetworkGame {
+	ng := &NetworkGame{game:game.Create(typeGame),dico:dico,playersConnexion:make(map[string]networkPlayer),watcher:make(chan string,10)}
 	ng.watchDisconnect()
 	return ng
 }
@@ -187,7 +187,7 @@ func (ng * NetworkGame)StartGame(c *gin.Context, playerID string){
 
 func (ng * NetworkGame)StartRound(){
 	ng.game.Start()
-	// Send currentuser
+	// Send current user
 	m := ng.getMessageNewRound()
 	ng.sendMessageToAll("-1",m)
 }
@@ -199,7 +199,7 @@ func (ng * NetworkGame)Join(name string,c *gin.Context)error{
 	}else{
 		// Set cookie with
 		c.SetCookie("player",player.ID,0,"/","",false,false)
-		c.Writer.Write([]byte(fmt.Sprintf("{\"id\":\"%s\"}",player.ID)))
+		c.Writer.Write([]byte(fmt.Sprintf("{\"id\":\"%s\",\"type\":\"%s\"}",player.ID,ng.game.GetType())))
 	}
 	return nil
 }
@@ -240,9 +240,16 @@ func (ng * NetworkGame)ChooseWord(word, playerID string)error{
 		}
 		// Send message to user for giving : message + receiver
 		ng.sendMessageToAll("-1",ng.getMessageDefinition(word,false))
-		ng.createRequestWaiter(game.WaitDefinition,1,func(){ng.StartVotes()})
+		ng.createRequestWaiter(game.WaitDefinition,ng.getNumberAvoid(),func(){ng.StartVotes()})
 	}
 	return nil
+}
+
+func (ng * NetworkGame)getNumberAvoid()int{
+	if !ng.game.TypeGameNormal{
+		return 0
+	}
+	return 1
 }
 
 func formatPlayer(p * game.Player)string{
@@ -261,19 +268,21 @@ func (ng * NetworkGame) getMessageDefinition(word string,answers bool)message{
 func (ng * NetworkGame)getMessageScore(roundScore map[string]int,detailScore map[string]*game.DetailScore,totalScore map[string]int)message{
 	answersData := ng.getAnswersData(true)
 	goodAnswer := ng.game.CurrentRound.GetGoodDefinition()
+	word := ng.game.CurrentRound.Word
 	roundData,_ := json.Marshal(roundScore)
 	totalData,_ := json.Marshal(totalScore)
 	detailData,_ := json.Marshal(detailScore)
 	definitions,_ := json.Marshal(ng.game.GetDefinitionsWithName())
-	data := fmt.Sprintf("{\"type\":\"score\",\"answer\":\"%s\",\"round\":%s,\"total\":%s,\"detail\":%s,\"countdown\":%d%s,\"definitions\":%s}",
-		goodAnswer,roundData,totalData,detailData,ng.game.GetRestingTime(),answersData,definitions)
+	data := fmt.Sprintf("{\"type\":\"score\",\"word\":\"%s\",\"answer\":\"%s\",\"round\":%s,\"total\":%s,\"detail\":%s,\"countdown\":%d%s,\"definitions\":%s}",
+		word,goodAnswer,roundData,totalData,detailData,ng.game.GetRestingTime(),answersData,definitions)
 	return message{"message",data}
 }
 
 // playerID is used to specify which is the answer of plater
 func (ng * NetworkGame)getMessageVotes(playerID string,answers bool)(message,error){
 
-	if data,err := json.Marshal(ng.game.CurrentRound.GetDefinitionsWithInfo(playerID)) ; err == nil {
+	// If fun, hide the good answer
+	if data,err := json.Marshal(ng.game.CurrentRound.GetDefinitionsWithInfo(playerID,"-1")) ; err == nil {
 		answersData := ng.getAnswersData(answers)
 		return message{"message", fmt.Sprintf("{\"type\":\"vote\",\"master\":%s,\"countdown\":%d,\"word\":\"%s\",\"definitions\":%s%s}",
 			formatPlayer(ng.game.GetCurrentDicoPlayer()),
@@ -298,7 +307,7 @@ func (ng * NetworkGame)StartVotes(){
 	ng.game.LaunchVotes()
 	// Send message for vote
 	ng.sendMessageFromFctToAll("-1",func(playerID string)(message,error){return ng.getMessageVotes(playerID,false)})
-	ng.createRequestWaiter(game.WaitVote, 1,func() { ng.ComputeScore() })
+	ng.createRequestWaiter(game.WaitVote, ng.getNumberAvoid(),func() { ng.ComputeScore() })
 }
 
 func (ng * NetworkGame)GiveDefinition(playerID,definition string)error{

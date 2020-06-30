@@ -1,8 +1,7 @@
 import React from "react";
 
 export default React.createContext({
-    joinGame:code=>{},
-    createGame:()=>{},
+    createGame:type=>{},
     createCurrentGame:(code,isCreator)=>{},
     sendWordForGame:(code,word)=>{},
     isGameExist:code=>{},
@@ -13,6 +12,7 @@ export default React.createContext({
     sendVote:(code,vote)=>{},
     readRules:(code)=>{},
     readScore:(code)=>{},
+    getRandomPage:(nbByPage)=>{},
     startGame:(code)=>{},
     canJoin:(code)=>{},
     getNbByLetter:letter=>{},

@@ -1,17 +1,14 @@
 import axios from "axios";
 import {notification} from "antd";
 
-function joinGame(code){
-    console.log(code)
-}
-
 function getBaseUrl(){
     return window.location.href.indexOf('/dico_game') !== -1 ? '/dico_game':'';
 }
 
-function createGame(){
+function createGame(type){
     return axios({
             url: getBaseUrl() + '/api/game/create',
+            data:JSON.stringify({type:type}),
             method:'POST'
         }
     );
@@ -81,29 +78,37 @@ function createSSEConnection(code,messageHandler,notifyHandler){
         let data = JSON.parse(event.data);
         notifyHandler(data);
     });
-};
+}
 
 function startGame(code){
     axios({
         url: getBaseUrl() + `/api/game/start/${code}`,
         method:'GET'
     }).then(d=>console.log("Partie demarre"))
-};
+}
 
 function readScore(code){
     axios({
         url: getBaseUrl() + `/api/game/read_score/${code}`,
         method:'POST'
     }).then(d=>console.log("En attente"))
-};
+}
 
+function getRandomPage(nbByPage){
+    return axios({
+        url: getBaseUrl() + `/api/dico/random/${nbByPage}`,
+        method:'GET'
+    }).then(d=>{
+        return new Promise(resolve=>resolve(d.data));
+    });
+}
 
 function readRules(code){
     axios({
         url: getBaseUrl() + `/api/game/read_rules/${code}`,
         method:'POST'
     }).then(d=>console.log("En attente"))
-};
+}
 
 function sendVote(code,vote){
     axios({
@@ -113,11 +118,10 @@ function sendVote(code,vote){
     })
         .then(d=>console.log("A voté"))
         .catch(e=>notification["error"]({message:'Vote impossible',description:'Impossible de voter'}))
-};
+}
 
 
 export default {
-    joinGame:joinGame,
     createGame:createGame,
     createCurrentGame:createCurrentGame,
     isGameExist:isGameExist,
@@ -129,6 +133,7 @@ export default {
     sendVote:sendVote,
     readRules:readRules,
     readScore:readScore,
+    getRandomPage:getRandomPage,
     startGame:startGame,
     canJoin:canJoin,
     createSSEConnection:createSSEConnection

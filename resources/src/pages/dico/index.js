@@ -6,19 +6,32 @@ import {Button, Col, Row, Slider} from "antd";
 export default function Dico({validateAction=(value)=>{console.log("Selected",value)}}) {
     const [words,setWords] = useState([]);
     const [selectedLetter,setSelectedLetter] = useState('');
-    const {getWords,getNbByLetter} = useContext(GameContext);
+    const {getWords,getNbByLetter,getRandomPage} = useContext(GameContext);
     const [nbWords,setNbWords] = useState(0);
     const nbByPage = 20;
     const [selectedWord,setSelectedWord] = useState('');
     const [currentPage,setCurrentPage] = useState(0);
 
     const loadWords = letter=>{
-        setSelectedLetter(letter);
-        setCurrentPage(0);
-        loadWordsPages(letter,0,nbByPage);
-        getNbByLetter(letter).then(resp=>setNbWords(resp.data.nb-1))
+        loadPage(letter,0);
     };
+
+    const loadPage = (letter,page)=>{
+        setSelectedLetter(letter);
+        setCurrentPage(page);
+        loadWordsPages(letter,page*nbByPage,(page+1)*nbByPage);
+        getNbByLetter(letter).then(resp=>setNbWords(resp.data.nb-1))
+    }
+
     const loadWordsPages = (letter,from,to)=>getWords(letter,from,to).then(resp=>setWords(resp.data));
+
+    const randomPage = ()=> {
+        getRandomPage(nbByPage)
+            .then(data=>{
+                loadPage(data.letter,data.page);
+            })
+            .catch(e=>console.log("GOT ERR",e))
+    };
 
     const showWord = wordDef => {
         return (
@@ -54,6 +67,7 @@ export default function Dico({validateAction=(value)=>{console.log("Selected",va
                     Choisissez un mot dans le dictionnaire :
                     <span style={{fontWeight:'bold',color:'red',marginLeft:5}}>{selectedWord.replace(/&#39;/g,'\'')}</span>
                     <Button onClick={()=>validateAction(selectedWord)} style={{marginLeft:10}}>Valider</Button>
+                    <Button onClick={()=>randomPage()} style={{marginLeft:10}}>Page au hasard</Button>
                 </h3>
                 {showLetters()}
                 <div className="letter">-</div>

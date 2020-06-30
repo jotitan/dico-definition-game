@@ -30,6 +30,13 @@ func parseInt(value string)int{
 	return 0
 }
 
+func (s Server)GetRandomPage(c *gin.Context){
+	if nbByPage,err := strconv.ParseInt(c.Param("nbByPage"),10,32) ; err == nil {
+		letter, page := s.dico.GetRandomPage(int(nbByPage))
+		c.Writer.Write([]byte(fmt.Sprintf("{\"letter\":\"%s\",\"page\":%d}",letter,page)))
+	}
+}
+
 func (s Server)GetWordsByLetter(c *gin.Context){
 	letter := c.Param("letter")
 	from := parseInt(c.Param("from"))
@@ -70,8 +77,10 @@ func (s Server)GetGame(c *gin.Context){
 
 func (s Server)CreateGame(c *gin.Context){
 	c.Header("Access-Control-Allow-Origin","*")
-	ngame := s.gameManager.AddNewGame(s.dico)
-	c.JSON(http.StatusOK,gin.H{"code":ngame.game.Code})
+	values := s.extractParameters(c,[]string{"type"})
+
+	ngame := s.gameManager.AddNewGame(values[0].(string),s.dico)
+	c.JSON(http.StatusOK,gin.H{"code":ngame.game.Code,"type":ngame.game.GetType()})
 }
 
 func (s Server)ReadRules(c *gin.Context) {
@@ -179,6 +188,7 @@ func (s Server)Default(c *gin.Context){
 func (s Server)Run(){
 	server := gin.Default()
 	server.GET("/api/dico/search/:letter/:from/:to",s.GetWordsByLetter)
+	server.GET("/api/dico/random/:nbByPage",s.GetRandomPage)
 	server.GET("/api/dico/nb/:letter",s.GetNbWordsByLetter)
 	server.POST("/api/game/create",s.CreateGame)
 	server.GET("/api/game/detail/:game_code",s.GetGame)

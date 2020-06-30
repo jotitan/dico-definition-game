@@ -6,7 +6,7 @@ import (
 )
 
 func TestGame(t *testing.T){
-	game := Create()
+	game := Create("normal")
 	if game == nil {
 		t.Error("Game must not be null")
 	}
@@ -106,7 +106,7 @@ func TestRound(t *testing.T){
 	r.Vote("3",1)
 	r.Vote("4",1)
 	// Results should be 2 , 4 , 0 , 0
-	roundScore, detailScore := r.countScore(players,players["1"])
+	roundScore, detailScore := r.countScore(players,players["1"],true,true)
 	if pt := roundScore["P1"] ; pt != 2 {
 		t.Error(fmt.Sprintf("Player 1 should have 2 points but get %d",pt))
 	}
@@ -133,5 +133,13 @@ func TestRound(t *testing.T){
 	}
 	if pt := detailScore["P4"].VotePoint; pt!=0{
 		t.Error(fmt.Sprintf("P4 should win 0 points on by votes %d",pt))
+	}
+
+	roundScore, detailScore = r.countScore(players,players["1"],true,false)
+	if pt := roundScore["P1"] ; pt != 0 {
+		t.Error(fmt.Sprintf("Master should have not point cause no count bad answer in fun game. But found %d",pt))
+	}
+	if pt := detailScore["P1"].ErrorPoint; pt != 0 {
+		t.Error(fmt.Sprintf("Master should have not point cause no count bad answer in fun game (2nd test). But found %d",pt))
 	}
 }
